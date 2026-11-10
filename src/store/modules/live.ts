@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { computed } from "vue";
 import { t } from "../../lang";
 import { Dialog } from "../../lib/dialog";
 import { mapError } from "../../lib/error";
@@ -96,17 +95,7 @@ const EMPTY_LIVE_STATUS = {
 
 export const liveStore = defineStore("live", {
     state: () => ({
-        server: computed(() => {
-            return serverStore.records.find((item) =>
-                item.functions.includes("live"),
-            ) as ServerRecord | undefined;
-        }) as any,
-        available: computed(() => {
-            const server = serverStore.records.find((item) =>
-                item.functions.includes("live"),
-            ) as ServerRecord | undefined;
-            return server && server.status === EnumServerStatus.RUNNING;
-        }),
+        // server / available 移到 getters，按 localConfig.serverKey 优先选用本地模型
         serverConfig: {
             ttsProviders: [] as {
                 name: string;
@@ -123,6 +112,8 @@ export const liveStore = defineStore("live", {
             }[],
         },
         localConfig: {
+            /** 用户选择的本地模型 key，优先于自动查找的 live 功能模型 */
+            serverKey: "",
             model: "wav2lip" as (typeof liveModels)[number]["value"],
             mode: "avatar" as "avatar" | "audio",
             avatar: {
@@ -168,6 +159,25 @@ export const liveStore = defineStore("live", {
         liveDataUpdateTimer: undefined as any,
     }),
     getters: {
+        /** 当前接管的直播服务：优先使用用户选择的本地模型，否则回退到首个 live 功能模型 */
+        server(state): ServerRecord | undefined {
+            const key = state.localConfig.serverKey;
+            if (key) {
+                const picked = serverStore.records.find(
+                    (item) => item.key === key,
+                );
+                if (picked) {
+                    return picked;
+                }
+            }
+            return serverStore.records.find((item) =>
+                item.functions.includes("live"),
+            ) as ServerRecord | undefined;
+        },
+        available(): boolean {
+            const server = this.server as ServerRecord | undefined;
+            return !!server && server.status === EnumServerStatus.RUNNING;
+        },
         // 直播服务使用的 TTS provider：优先使用音色管理中选择的音色，
         // 未选择音色时回退到旧的声音驱动配置
         activeTtsProvider(state): string {
@@ -193,6 +203,8 @@ export const liveStore = defineStore("live", {
         async init() {
             const localConfig = await $mapi.storage.get("live", "config", {});
             // console.log('live.init', localConfig)
+            this.localConfig.serverKey =
+                localConfig.serverKey || this.localConfig.serverKey;
             this.localConfig.model =
                 localConfig.model || this.localConfig.model;
             this.localConfig.mode = localConfig.mode || this.localConfig.mode;

@@ -21,6 +21,9 @@ import { ServerInfo } from "../../../electron/mapi/server/type";
 
 const taskStore = useTaskStore();
 const serverRuntime = ref<Map<string, ServerRuntime>>(new Map());
+// 最近一次接管请求的令牌：loadTakeover 仅当 token 匹配时才真正拉起进程，
+// 避免初始化回放、watch 重复触发导致的并发启动。
+let latestTakeoverToken = "";
 const createServerStatus = (
     record: ServerRecord,
 ): ComputedRef<EnumServerStatus> => {
@@ -754,6 +757,114 @@ export const serverStore = defineStore("server", {
                 record.runtime = undefined;
             });
             await $mapi.storage.set("server", "records", savedRecords);
+        },
+        /**
+         * 载入并接管本地模型：先把模型配置加载出来（若解析失败则提示但不阻断），
+         * 再确保服务已运行——未运行则按 config 拉起进程并等待就绪，已运行则直接复用。
+         *
+         * 这是「选择本地模型 → 载入接管」的核心：原本走 Pro 云端链路的位置，
+         * 现在直接落到本地已添加的模型上，由调用方（选择器 / 直播面板）完成切换。
+         *
+         * @param key 模型 key，必须是本地类型（LOCAL / LOCAL_DIR / API），云端模型不在此接管
+         * @param option.takeoverToken 调用方传入的令牌；仅当与最新一次调用一致时才启动进程，
+         *                            避免历史 watch 回放导致的重复拉起
+         */
+        async loadTakeover(
+            key: string,
+            option?: { takeoverToken?: string },
+        ): Promise<ServerRecord | undefined> {
+            // token 校验：仅接受最新一次接管请求，丢弃过期的竞态调用
+            if (
+                option?.takeoverToken !== undefined &&
+                option.takeoverToken !== latestTakeoverToken
+            ) {
+                return undefined;
+            }
+            const server = await this.getByKey(key);
+            if (!server) {
+                Dialog.tipError(t("error.serverNotFound"));
+                return undefined;
+            }
+            if (
+                server.type === EnumServerType.CLOUD ||
+                server.type === EnumServerType.REMOTE
+            ) {
+                // 云端 / 远程由各自的链路接管，本地载入只负责本地模型
+                return server;
+            }
+            const availability = this.serverAvailability(server);
+            if (!availability.available) {
+                Dialog.tipError(
+                    t("error.serverWeightsNotReady", {
+                        reason: availability.reason,
+                    }),
+                );
+                throw new Error(availability.reason);
+            }
+            // 先解析一次 config（不依赖进程是否启动），失败仅提示，不影响后续拉起
+            try {
+                await window.$mapi.server.config(
+                    await this.serverInfo(server),
+                );
+            } catch (e) {
+                Dialog.tipError(mapError((e as Error)?.message || e));
+            }
+            const runtime = getOrCreateServerRuntime(server);
+            const isAutoStart = !!server.autoStart;
+            const alreadyRunning = await (async () => {
+                try {
+                    return await $mapi.server.ping(
+                        await this.serverInfo(server),
+                    );
+                } catch (e) {
+                    return false;
+                }
+            })();
+            if (alreadyRunning) {
+                runtime.status = EnumServerStatus.RUNNING;
+                if (isAutoStart) {
+                    runtime.autoStartStatus = EnumServerStatus.RUNNING;
+                }
+                return server;
+            }
+            // 拉起进程：autoStart 模型 record.status 恒 RUNNING，不能走 start() 的状态检查，
+            // 这里直接强制拉起（与 call() 中 comfyui 的处理一致）。
+            runtime.status = EnumServerStatus.STARTING;
+            runtime.startTimestampMS = TimeUtil.timestampMS();
+            runtime.logFile = `logs/${server.name}_${server.version}_${TimeUtil.dateString()}_${runtime.startTimestampMS}.log`;
+            runtime.eventChannelName = createEventChannel(server);
+            const serverInfo = await this.serverInfo(server);
+            try {
+                await $mapi.server.start(serverInfo);
+            } catch (e) {
+                if (runtime.status !== EnumServerStatus.STOPPED) {
+                    runtime.status = EnumServerStatus.ERROR;
+                }
+                Dialog.tipError(mapError((e as Error)?.message || e));
+                throw e;
+            }
+            const deadline = Date.now() + 5 * 60 * 1000;
+            while (Date.now() < deadline) {
+                let ok = false;
+                try {
+                    ok = await $mapi.server.ping(serverInfo);
+                } catch (e) {
+                    ok = false;
+                }
+                if (ok) {
+                    runtime.status = EnumServerStatus.RUNNING;
+                    if (isAutoStart) {
+                        runtime.autoStartStatus = EnumServerStatus.RUNNING;
+                    }
+                    return server;
+                }
+                if (runtime.status === EnumServerStatus.ERROR) {
+                    throw new Error("server start failed");
+                }
+                await wait(2000);
+            }
+            runtime.status = EnumServerStatus.ERROR;
+            throw new Error("server start timeout");
         },
         async getByKey(key: string): Promise<ServerRecord | undefined> {
             

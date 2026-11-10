@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useServerStore } from "../../store/modules/server";
-import { EnumServerStatus } from "../../types/Server";
+import { EnumServerStatus, EnumServerType } from "../../types/Server";
 
 import { Dialog } from "../../lib/dialog";
 import { mapError } from "../../lib/error";
@@ -89,6 +89,25 @@ const hasRecords = computed(() => {
 const emit = defineEmits({
     update: (config: any) => true,
 });
+// 仅用户主动选择时才触发载入接管；初始化回放（v-model 恢复上次值）不拉起进程。
+const onUserSelect = (value: string) => {
+    // 本地模型：选择后载入并接管（拉起进程或复用已运行实例）。
+    // 云端 / 远程模型由各自的链路接管，这里只处理本地模型。
+    if (!value) {
+        return;
+    }
+    const picked = serverStore.records.find((s) => s.key === value);
+    if (
+        !picked ||
+        picked.type === EnumServerType.CLOUD ||
+        picked.type === EnumServerType.REMOTE
+    ) {
+        return;
+    }
+    serverStore.loadTakeover(value).catch((e) => {
+        Dialog.tipError(mapError(e));
+    });
+};
 watch(
     () => select.value?.modelValue,
     async (value) => {
@@ -126,6 +145,7 @@ watch(
         class="min-w-64"
         style="height: 32px"
         @popup-visible-change="onPopupVisibleChange"
+        @change="onUserSelect"
     >
         <a-optgroup :label="$t('model.localModel')">
             <a-option
