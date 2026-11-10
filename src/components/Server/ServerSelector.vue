@@ -37,8 +37,10 @@ const props = defineProps<{
     functionName: string;
 }>();
 const recordsFilter = computed(() => {
-    return serverStore.records.filter((s) =>
-        s.functions.includes(props.functionName),
+    return serverStore.records.filter(
+        (s) =>
+            s.type !== EnumServerType.CLOUD &&
+            s.functions.includes(props.functionName),
     );
 });
 
@@ -61,26 +63,7 @@ const valueStatus = computed(() => {
             ?.status || EnumServerStatus.STOPPED
     );
 });
-let showCloudOptgroup = false;
-
-// Cloud catalog state: an empty group must say why it is empty instead of
-// vanishing, otherwise users read it as "nothing here, I have to add it".
-const cloudLoading = computed(() => {
-    
-    return false;
-});
-const cloudLoadFailed = computed(() => {
-    
-    return false;
-});
-const doCloudRetry = async () => {
-    
-};
-// Opening the dropdown is the moment the user looks for cloud models: retry
-// a failed catalog first so they do not have to reload the whole app.
-const onPopupVisibleChange = (visible: boolean) => {
-    
-};
+const onPopupVisibleChange = (_visible: boolean) => {};
 const hasRecords = computed(() => {
     let count = recordsFilter.value.length;
     
@@ -186,60 +169,6 @@ watch(
                 </div>
             </a-option>
         </a-optgroup>
-        <a-optgroup
-            v-if="showCloudOptgroup"
-            :label="$t('model.cloudGroupHint')"
-        >
-            <a-option
-                v-for="server in cloudRecordsFilter"
-                :key="server.key"
-                :value="server.key"
-            >
-                <div
-                    class="flex items-center py-2 flex-nowrap truncate no-wrap"
-                >
-                    <div
-                        class="w-2 h-2 bg-green-500 rounded-full mr-1 flex-shrink-0"
-                    ></div>
-                    <div class="text-xs flex-grow">
-                        {{ server.title }}
-                    </div>
-                    <span
-                        class="ml-2 flex-shrink-0 rounded bg-green-50 px-1 text-[10px] leading-4 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                    >
-                        {{ $t("model.cloudFreeTag") }}
-                    </span>
-                </div>
-            </a-option>
-            <a-option
-                v-if="!cloudRecordsFilter.length"
-                value="__cloud_placeholder__"
-                disabled
-            >
-                <div class="text-xs py-2 text-gray-400">
-                    {{
-                        cloudLoading
-                            ? $t("model.cloudLoading")
-                            : cloudLoadFailed
-                              ? $t("model.cloudLoadFailed")
-                              : $t("model.cloudEmpty")
-                    }}
-                </div>
-            </a-option>
-        </a-optgroup>
-        <a-optgroup
-            v-if="!showCloudOptgroup"
-            :label="$t('model.upgradeProForCloud')"
-        ></a-optgroup>
-        <template v-if="showCloudOptgroup && cloudLoadFailed" #footer>
-            <div
-                class="cursor-pointer px-3 py-2 text-xs text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-                @click="doCloudRetry"
-            >
-                <icon-refresh class="mr-1" />
-                {{ $t("model.cloudRetry") }}
-            </div>
-        </template>
         <template #label="{ data }">
             <div class="text-sm flex items-center flex-nowrap truncate no-wrap">
                 <div

@@ -26,12 +26,6 @@ const userTip = computed(() => {
     return user.user.id ? user.user.name : t("common.notLoggedIn");
 });
 
-const doUser = async () => {
-    if (!setting.basic.userEnable) {
-        return;
-    }
-    await window.$mapi.user.open();
-};
 </script>
 
 <template>
@@ -40,8 +34,6 @@ const doUser = async () => {
     >
         <div
             class="py-4 px-3"
-            :class="setting.basic.userEnable ? 'cursor-pointer' : ''"
-            @click="doUser"
         >
             <a-tooltip
                 v-if="setting.basic.userEnable"

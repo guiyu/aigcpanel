@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import ServerActionInfo from "../components/Server/ServerActionInfo.vue";
 import ServerActionLog from "../components/Server/ServerActionLog.vue";
 import ServerPrepareStatus from "../components/Server/ServerPrepareStatus.vue";
 import ServerActionMore from "../components/Server/ServerActionMore.vue";
-import ServerOfflineAuthTag from "../components/Server/ServerOfflineAuthTag.vue";
 import ServerActionSetting from "../components/Server/ServerActionSetting.vue";
 import ServerActionStartStop from "../components/Server/ServerActionStartStop.vue";
 import ServerActionComfyUIView from "../components/Server/ServerActionComfyUIView.vue";
+import DigitalHumanOps from "../components/Server/DigitalHumanOps.vue";
 import ServerAddDialog from "../components/Server/ServerAddDialog.vue";
 import ServerStartTime from "../components/Server/ServerStartTime.vue";
 import ServerStatus from "../components/Server/ServerStatus.vue";
@@ -35,6 +35,11 @@ const modelSettingDialog = ref<InstanceType<typeof ModelSettingDialog> | null>(
 );
 const serverStore = useServerStore();
 const helpShow = ref(false);
+const visibleRecords = computed(() =>
+    serverStore.records.filter(
+        (record) => record.type !== EnumServerType.CLOUD,
+    ),
+);
 
 const doHelp = () => {
     window.$mapi.app.openExternal(AppConfig.helpUrl);
@@ -158,10 +163,11 @@ onUnmounted(() => {
         class="pb-device-container bg-white p-6 min-h-full relative select-none"
     >
         <PageHeader title="AI模型" />
-        <ListerTop :total="serverStore.records.length" @refresh="doRefresh">
+        <DigitalHumanOps />
+        <ListerTop :total="visibleRecords.length" @refresh="doRefresh">
             <template #actions>
                 <a-button
-                    v-if="serverStore.records.length > 0"
+                    v-if="visibleRecords.length > 0"
                     @click="addDialog?.show()"
                 >
                     <template #icon>
@@ -196,7 +202,7 @@ onUnmounted(() => {
             </template>
         </ListerTop>
         <div>
-            <div v-if="!serverStore.records.length" class="py-20">
+            <div v-if="!visibleRecords.length" class="py-20">
                 <div class="text-center">
                     <img
                         class="h-32 m-auto opacity-50"
@@ -256,7 +262,7 @@ onUnmounted(() => {
             </div>
             <div v-else class="flex flex-wrap -mx-2">
                 <div
-                    v-for="record in serverStore.records"
+                    v-for="record in visibleRecords"
                     :key="record.key"
                     class="w-full lg:w-1/2 2xl:w-1/3 p-2 mb-1"
                 >
@@ -299,7 +305,7 @@ onUnmounted(() => {
                                     >
                                         v{{ record.version }}
                                     </div>
-                                    <ServerOfflineAuthTag :record="record" />
+
                                 </div>
                             </div>
                             <div class="flex items-center gap-1">

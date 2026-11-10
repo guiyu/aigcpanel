@@ -87,6 +87,9 @@ export const Page = {
             [key: string]: any;
         },
     ) => {
+        if (name === "user" || name === "payment") {
+            return;
+        }
         option = Object.assign(
             {
                 singleton: true,

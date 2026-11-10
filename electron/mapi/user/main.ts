@@ -1,4 +1,4 @@
-import { ipcMain, shell } from "electron";
+import { ipcMain } from "electron";
 import { AppConfig } from "../../../src/config";
 import { ResultType } from "../../lib/api";
 import { Events } from "../event/main";
@@ -153,9 +153,9 @@ ipcMain.handle("user:getWebEnterUrl", async (event, url) => {
     return getWebEnterUrl(url);
 });
 
-const openWebUrl = async (url: string) => {
-    url = await getWebEnterUrl(url);
-    await shell.openExternal(url);
+const openWebUrl = async (_url: string) => {
+    // 不打开会员/支付外链
+    return;
 };
 
 ipcMain.handle("user:openWebUrl", async (event, url) => {

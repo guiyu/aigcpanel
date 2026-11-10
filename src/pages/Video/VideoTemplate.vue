@@ -11,7 +11,7 @@ import {
     VideoTemplateService,
 } from "../../service/VideoTemplateService";
 import VideoInfo from "../Apps/common/VideoInfo.vue";
-import VideoTemplateCloudDialog from "./components/VideoTemplateCloudDialog.vue";
+
 import VideoTemplateEditDialog from "./components/VideoTemplateEditDialog.vue";
 import ListerTop from "../../components/common/ListerTop.vue";
 import MEmpty from "../../components/common/MEmpty.vue";
@@ -20,7 +20,6 @@ import PageHeader from "../../components/PageHeader.vue";
 import { testActionSet, testActionUnset } from "../../utils/test";
 
 const editDialog = ref<InstanceType<typeof VideoTemplateEditDialog>>();
-const cloudDialog = ref<InstanceType<typeof VideoTemplateCloudDialog>>();
 const records = ref<VideoTemplateRecord[]>([]);
 const loading = ref(true);
 
@@ -76,12 +75,6 @@ const onUpdate = async () => {
             @refresh="doRefresh"
         >
             <template #actions>
-                <a-button @click="cloudDialog?.show()">
-                    <template #icon>
-                        <i-mdi-cloud-download />
-                    </template>
-                    {{ $t("model.cloudAvatar") }}
-                </a-button>
                 <a-button @click="editDialog?.add()">
                     <template #icon>
                         <i-mdi-plus />
@@ -159,5 +152,5 @@ const onUpdate = async () => {
         </div>
     </div>
     <VideoTemplateEditDialog @update="onUpdate" ref="editDialog" />
-    <VideoTemplateCloudDialog @update="onUpdate" ref="cloudDialog" />
+
 </template>

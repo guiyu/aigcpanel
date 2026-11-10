@@ -383,32 +383,29 @@ onUnmounted(() => {
 
         <!-- 云端 AI 模型 / 模型市场 / 工单反馈 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            
-
-            <a
-                href="https://aigcpanel.com/zh/asset"
-                target="_blank"
-                class="bg-white dark:bg-gray-800 rounded-xl p-4 flex items-center hover:shadow-md border border-gray-100 dark:border-gray-700 transition-all group"
+            <div
+                class="bg-white dark:bg-gray-800 rounded-xl p-4 flex items-center hover:shadow-md border border-gray-100 dark:border-gray-700 transition-all group cursor-pointer"
+                @click="doUrl('/server')"
             >
                 <div
-                    class="w-14 h-14 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mr-3 flex-shrink-0 text-emerald-500"
+                    class="w-14 h-14 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mr-3 flex-shrink-0 text-blue-500"
                 >
-                    <icon-apps class="text-2xl" />
+                    <icon-robot class="text-2xl" />
                 </div>
                 <div class="flex-grow">
                     <div
                         class="font-medium text-sm text-gray-800 dark:text-gray-200"
                     >
-                        {{ $t("model.market") }}
+                        {{ $t("model.dhTitle") }}
                     </div>
                     <div class="text-gray-400 text-xs mt-0.5">
-                        {{ $t("intro.modelsUpdate") }}
+                        {{ $t("model.dhHomeHint") }}
                     </div>
                 </div>
                 <icon-right
                     class="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
                 />
-            </a>
+            </div>
 
             <div
                 class="bg-white dark:bg-gray-800 rounded-xl p-4 flex items-center hover:shadow-md border border-gray-100 dark:border-gray-700 transition-all group"

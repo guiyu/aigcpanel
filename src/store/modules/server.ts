@@ -3,7 +3,6 @@ import { defineStore } from "pinia";
 import { computed, ref, toRaw, ComputedRef } from "vue";
 import { t } from "../../lang";
 import { Dialog } from "../../lib/dialog";
-import { OfflineAuth } from "../../lib/offlineAuth";
 import { TimeUtil, wait } from "../../lib/util";
 import { StorageService } from "../../service/StorageService";
 import { TaskService } from "../../service/TaskService";
@@ -142,67 +141,18 @@ const createEventChannel = (
             case "action":
                 switch (data.type) {
                     case "LoginRequired":
-                        Dialog.tipError(data.msg || t("common.loginRequired"));
-                        setTimeout(() => {
-                            $mapi.user.open().then();
-                        }, 2000);
+                        // 不打开会员/登录窗口，避免跳出支付或授权界面
+                        serverRuntime.status = EnumServerStatus.ERROR;
                         break;
-                    
-                    // 离线授权未激活：弹窗输入授权码，写入 auth.json 后继续启动
                     case "OfflineAuthRequired": {
+                        // 不弹出授权码窗口。结束启动器挂起的任务，模型保持未授权即失败。
                         (async () => {
                             const serverInfo =
                                 await serverStoreInstance.serverInfo(server);
-                            // 弹窗内直接调用 launcher 真实校验，无效时保持弹窗并提示
-                            const token = await OfflineAuth.require({
-                                machineId: data.machineId,
-                                packageName: data.packageName,
-                                version: data.version,
-                                reason: data.reason,
-                                onSave: async (value: string) => {
-                                    return await $mapi.server.saveOfflineAuth(
-                                        serverInfo,
-                                        value,
-                                    );
-                                },
-                            });
-                            if (!token) {
-                                await $mapi.server.cancelOfflineAuth(
-                                    serverInfo,
-                                );
-                                return;
-                            }
-                            const res = await $mapi.server.submitOfflineAuth(
-                                serverInfo,
-                                token,
-                            );
-                            if (res && res.code) {
-                                // 保存失败：结束挂起任务，避免一直「运行中」
-                                await $mapi.server.cancelOfflineAuth(
-                                    serverInfo,
-                                );
-                                Dialog.tipError(
-                                    res.msg || t("offlineAuth.saveFailed"),
-                                );
-                                serverRuntime.status = EnumServerStatus.ERROR;
-                                return;
-                            }
-                            serverStoreInstance.bumpOfflineAuth();
-                            window.$mapi.app.toast(t("offlineAuth.saved"), {
-                                status: "success",
-                            });
-                        })().catch(async (e) => {
-                            // 兜底：任何异常都要结束挂起任务，避免任务一直显示「运行中」
-                            try {
-                                const info =
-                                    await serverStoreInstance.serverInfo(
-                                        server,
-                                    );
-                                await $mapi.server.cancelOfflineAuth(info);
-                            } catch (cancelError) {
-                                // ignore
-                            }
-                            Dialog.tipError(String(e));
+                            await $mapi.server.cancelOfflineAuth(serverInfo);
+                            serverRuntime.status = EnumServerStatus.ERROR;
+                        })().catch(() => {
+                            serverRuntime.status = EnumServerStatus.ERROR;
                         });
                         break;
                     }

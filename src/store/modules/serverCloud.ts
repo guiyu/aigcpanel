@@ -62,6 +62,11 @@ export const serverCloudStore = defineStore("serverCloud", {
             }
         },
         async refresh() {
+            // 本构建不拉取云端模型目录
+            this.records = [];
+            this.loading = false;
+            this.error = "";
+            return;
             if (this.loading) {
                 return;
             }
